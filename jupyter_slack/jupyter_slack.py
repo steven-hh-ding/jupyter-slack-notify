@@ -9,6 +9,8 @@ from functools import wraps
 from IPython.core import magic_arguments
 from IPython.core.magics import ExecutionMagics
 from IPython.core.magic import cell_magic, magics_class
+import socket
+host = socket.gethostname()
 
 
 slack_accessible = "SLACK_WEBHOOK_URL" in os.environ or ("SLACK_TOKEN" in os.environ and "SLACK_ID" in os.environ)
@@ -46,9 +48,9 @@ def notify_self(message):
             pass
 
 class Monitor:
-    def __init__(self, msg, time=False,
+    def __init__(self, msg, time=True,
             send_full_traceback=False, send_on_start=False,
-            start_prefix="Started", end_prefix="Finished",
+            start_prefix="started", end_prefix="finished",
             err_prefix="Error while", silent=False):
         self.msg = msg
         self.time = time
@@ -67,7 +69,7 @@ class Monitor:
         elapsed %= 3600
         minutes = elapsed // 60
         elapsed %= 60
-        seconds = round(elapsed, 1)
+        seconds = round(elapsed, 6)
         time_mess = ""
         if day > 0:
             time_mess += " {} days".format(day)
@@ -75,7 +77,7 @@ class Monitor:
             time_mess += " {} hours ".format(hour)
         if minutes > 0:
             time_mess += " {} minutes".format(minutes)
-        if seconds > 0:
+        if seconds >= 0:
             time_mess += " {} seconds".format(seconds)
         return time_mess
 
@@ -93,7 +95,7 @@ class Monitor:
         if exception_value is None:
             if self.time:
                 elapsed = time.time() - self._start
-                msg = "{} {} in {}".format(self.end_prefix, self.msg, self.construct_time_mess(elapsed))
+                msg = "{} {} {} in {}".format(host, self.end_prefix, self.msg, self.construct_time_mess(elapsed))
             else: msg = "{} {}".format(self.end_prefix, self.msg)
             notify_self(msg)
         else:
@@ -136,9 +138,8 @@ class MessengerMagics(ExecutionMagics):
     @cell_magic
     @magic_arguments.magic_arguments()
     @magic_arguments.argument("message", type=str)
-    @magic_arguments.argument("--time", "-t", action="store_true")
     def notify(self, line="", cell=None):
         args = magic_arguments.parse_argstring(self.notify, line)
         mess = args.message.replace("\"", "")
-        with Monitor(mess, time=args.time):
+        with Monitor(mess, time=True):
             self.shell.ex(cell)
